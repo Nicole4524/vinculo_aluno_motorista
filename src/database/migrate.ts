@@ -1,17 +1,18 @@
 import fs from 'fs';
 import path from 'path';
-import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 async function migrate() {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios');
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error('DATABASE_URL é obrigatória');
     process.exit(1);
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const pool = new Pool({ connectionString: databaseUrl });
   const migrationsDir = path.resolve(__dirname, 'migrations');
   const files = fs.readdirSync(migrationsDir).sort();
 
@@ -19,13 +20,18 @@ async function migrate() {
     if (!file.endsWith('.sql')) continue;
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
     console.log(`Executando migration: ${file}`);
-    const { error } = await supabase.rpc('exec_sql', { sql });
-    if (error) {
-      console.error(`Erro em ${file}:`, error.message);
-    } else {
+    try {
+      await pool.query(sql);
       console.log(`  ✓ ${file} executada com sucesso`);
+    } catch (error: any) {
+      console.error(`  ✗ Erro em ${file}:`, error.message);
     }
   }
+
+  await pool.end();
 }
 
-migrate().catch(console.error);
+migrate().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

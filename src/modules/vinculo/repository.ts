@@ -1,238 +1,160 @@
-import { getDatabase } from '../../config/database';
+import { query, querySingle } from '../../config/database';
 import { StatusSolicitacao } from '../../shared/types';
-import {
-  SolicitacaoVinculoRow,
-  VinculoRow,
-} from './types';
+import { SolicitacaoVinculoRow, VinculoRow } from './types';
 
 // ---- Solicitacoes ----
 export async function insertSolicitacao(
   alunoId: number,
   motoristaId: number,
-  solicitadoPor: string
+  solicitadoPor: string,
 ): Promise<SolicitacaoVinculoRow> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('solicitacoes_vinculo')
-    .insert({ aluno_id: alunoId, motorista_id: motoristaId, solicitado_por: solicitadoPor })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const rows = await query<SolicitacaoVinculoRow>(
+    `INSERT INTO solicitacoes_vinculo (aluno_id, motorista_id, solicitado_por)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [alunoId, motoristaId, solicitadoPor],
+  );
+  return rows[0];
 }
 
 export async function findSolicitacaoById(id: string): Promise<SolicitacaoVinculoRow | null> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('solicitacoes_vinculo')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error && error.code === 'PGRST116') return null;
-  if (error) throw error;
-  return data;
+  return querySingle<SolicitacaoVinculoRow>(
+    'SELECT * FROM solicitacoes_vinculo WHERE id = $1',
+    [id],
+  );
 }
 
 export async function findPendenteByPair(alunoId: number, motoristaId: number): Promise<SolicitacaoVinculoRow | null> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('solicitacoes_vinculo')
-    .select('*')
-    .eq('aluno_id', alunoId)
-    .eq('motorista_id', motoristaId)
-    .eq('status', StatusSolicitacao.PENDENTE)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+  return querySingle<SolicitacaoVinculoRow>(
+    `SELECT * FROM solicitacoes_vinculo
+     WHERE aluno_id = $1 AND motorista_id = $2 AND status = $3`,
+    [alunoId, motoristaId, StatusSolicitacao.PENDENTE],
+  );
 }
 
 export async function findSolicitacoesByAluno(
   alunoId: number,
-  status?: StatusSolicitacao
+  status?: StatusSolicitacao,
 ): Promise<SolicitacaoVinculoRow[]> {
-  const db = getDatabase();
-  let query = db
-    .from('solicitacoes_vinculo')
-    .select('*')
-    .eq('aluno_id', alunoId)
-    .order('created_at', { ascending: false });
-
+  let sql = 'SELECT * FROM solicitacoes_vinculo WHERE aluno_id = $1';
+  const params: any[] = [alunoId];
   if (status) {
-    query = query.eq('status', status);
+    sql += ' AND status = $2';
+    params.push(status);
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  sql += ' ORDER BY created_at DESC';
+  return query<SolicitacaoVinculoRow>(sql, params);
 }
 
 export async function findSolicitacoesByMotorista(
   motoristaId: number,
-  status?: StatusSolicitacao
+  status?: StatusSolicitacao,
 ): Promise<SolicitacaoVinculoRow[]> {
-  const db = getDatabase();
-  let query = db
-    .from('solicitacoes_vinculo')
-    .select('*')
-    .eq('motorista_id', motoristaId)
-    .order('created_at', { ascending: false });
-
+  let sql = 'SELECT * FROM solicitacoes_vinculo WHERE motorista_id = $1';
+  const params: any[] = [motoristaId];
   if (status) {
-    query = query.eq('status', status);
+    sql += ' AND status = $2';
+    params.push(status);
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  sql += ' ORDER BY created_at DESC';
+  return query<SolicitacaoVinculoRow>(sql, params);
 }
 
 export async function updateSolicitacaoStatus(
   id: string,
-  status: StatusSolicitacao
+  status: StatusSolicitacao,
 ): Promise<SolicitacaoVinculoRow> {
-  const db = getDatabase();
-  const updates: Record<string, any> = {
-    status,
-    updated_at: new Date().toISOString(),
-  };
+  const sets: string[] = ['status = $2', 'updated_at = NOW()'];
+  const params: any[] = [id, status];
 
-  if ([StatusSolicitacao.ACEITA, StatusSolicitacao.RECUSADA].includes(status)) {
-    updates.responded_at = new Date().toISOString();
+  if (status === StatusSolicitacao.ACEITA || status === StatusSolicitacao.RECUSADA) {
+    sets.push('responded_at = NOW()');
   }
 
-  const { data, error } = await db
-    .from('solicitacoes_vinculo')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const rows = await query<SolicitacaoVinculoRow>(
+    `UPDATE solicitacoes_vinculo SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+    params,
+  );
+  return rows[0];
 }
 
 // ---- Vinculos ----
 export async function insertVinculo(alunoId: number, motoristaId: number): Promise<VinculoRow> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('vinculos')
-    .insert({ aluno_id: alunoId, motorista_id: motoristaId })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const rows = await query<VinculoRow>(
+    `INSERT INTO vinculos (aluno_id, motorista_id)
+     VALUES ($1, $2)
+     RETURNING *`,
+    [alunoId, motoristaId],
+  );
+  return rows[0];
 }
 
 export async function findVinculoAtivoByAluno(alunoId: number): Promise<VinculoRow | null> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('vinculos')
-    .select('*')
-    .eq('aluno_id', alunoId)
-    .eq('ativo', true)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
+  return querySingle<VinculoRow>(
+    'SELECT * FROM vinculos WHERE aluno_id = $1 AND ativo = true',
+    [alunoId],
+  );
 }
 
 export async function findVinculosByMotorista(motoristaId: number, ativo?: boolean): Promise<VinculoRow[]> {
-  const db = getDatabase();
-  let query = db
-    .from('vinculos')
-    .select('*')
-    .eq('motorista_id', motoristaId)
-    .order('created_at', { ascending: false });
-
+  let sql = 'SELECT * FROM vinculos WHERE motorista_id = $1';
+  const params: any[] = [motoristaId];
   if (ativo !== undefined) {
-    query = query.eq('ativo', ativo);
+    sql += ' AND ativo = $2';
+    params.push(ativo);
   }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data || [];
+  sql += ' ORDER BY created_at DESC';
+  return query<VinculoRow>(sql, params);
 }
 
 export async function findVinculoById(id: string): Promise<VinculoRow | null> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('vinculos')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error && error.code === 'PGRST116') return null;
-  if (error) throw error;
-  return data;
+  return querySingle<VinculoRow>('SELECT * FROM vinculos WHERE id = $1', [id]);
 }
 
 export async function updateVinculoAtivo(id: string, ativo: boolean): Promise<VinculoRow> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('vinculos')
-    .update({ ativo, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const rows = await query<VinculoRow>(
+    'UPDATE vinculos SET ativo = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
+    [id, ativo],
+  );
+  return rows[0];
 }
 
 export async function listVinculosAtivos(): Promise<VinculoRow[]> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('vinculos')
-    .select('*')
-    .eq('ativo', true)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  return query<VinculoRow>(
+    'SELECT * FROM vinculos WHERE ativo = true ORDER BY created_at DESC',
+  );
 }
 
 export async function listVinculosInativos(): Promise<VinculoRow[]> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('vinculos')
-    .select('*')
-    .eq('ativo', false)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  return query<VinculoRow>(
+    'SELECT * FROM vinculos WHERE ativo = false ORDER BY created_at DESC',
+  );
 }
 
-// ---- Usuarios (consulta) ----
+// ---- Usuarios (banco próprio) ----
 export type UsuarioRow = { id: number; nome: string; tipo: string; codigo?: string | null };
 
-export async function findUsuarioById(id: number): Promise<UsuarioRow | null> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('usuarios')
-    .select('id, nome, tipo')
-    .eq('id', id)
-    .single();
+export async function upsertUsuario(id: number, nome: string, tipo: string, codigo?: string): Promise<UsuarioRow> {
+  const rows = await query<UsuarioRow>(
+    `INSERT INTO usuarios (id, nome, tipo, codigo)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (id) DO UPDATE SET nome = EXCLUDED.nome, tipo = EXCLUDED.tipo, codigo = COALESCE(EXCLUDED.codigo, usuarios.codigo)
+     RETURNING id, nome, tipo, codigo`,
+    [id, nome, tipo, codigo || null],
+  );
+  return rows[0];
+}
 
-  if (error && error.code === 'PGRST116') return null;
-  if (error) throw error;
-  return data;
+export async function findUsuarioById(id: number): Promise<UsuarioRow | null> {
+  return querySingle<UsuarioRow>(
+    'SELECT id, nome, tipo FROM usuarios WHERE id = $1',
+    [id],
+  );
 }
 
 export async function findMotoristaByCode(codigo: string): Promise<(UsuarioRow & { codigo: string }) | null> {
-  const db = getDatabase();
-  const { data, error } = await db
-    .from('usuarios')
-    .select('id, nome, tipo, codigo')
-    .eq('codigo', codigo)
-    .eq('tipo', 'motorista')
-    .single();
-
-  if (error && error.code === 'PGRST116') return null;
-  if (error) throw error;
-  return data;
+  return querySingle<UsuarioRow & { codigo: string }>(
+    'SELECT id, nome, tipo, codigo FROM usuarios WHERE codigo = $1 AND tipo = $2',
+    [codigo, 'motorista'],
+  );
 }

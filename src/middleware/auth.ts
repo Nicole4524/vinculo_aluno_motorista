@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { DadosUsuario, PerfilUsuario } from '../shared/types';
 import { validarTokenAluno, validarTokenMotorista } from '../config/authApi';
 import { UnauthorizedError } from '../shared/errors';
+import { upsertUsuario } from '../modules/vinculo/repository';
 
 declare global {
   namespace Express {
@@ -26,6 +27,7 @@ export async function autenticar(req: Request, _res: Response, next: NextFunctio
       tipo: PerfilUsuario.ALUNO,
       nome: perfil.nome,
     };
+    await upsertUsuario(perfil.id, perfil.nome, 'aluno').catch(() => {});
     return next();
   } catch {
     // Token não é de aluno, tenta como motorista
@@ -38,6 +40,7 @@ export async function autenticar(req: Request, _res: Response, next: NextFunctio
       tipo: PerfilUsuario.MOTORISTA,
       nome: perfil.nome,
     };
+    await upsertUsuario(perfil.id, perfil.nome, 'motorista').catch(() => {});
     return next();
   } catch {
     return next(new UnauthorizedError('Token inválido ou expirado'));

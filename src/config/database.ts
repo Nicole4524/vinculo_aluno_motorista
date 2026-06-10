@@ -1,20 +1,45 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Pool, QueryResultRow } from 'pg';
 
-let supabase: SupabaseClient | null = null;
+let pool: Pool | null = null;
 
-export function getDatabase(): SupabaseClient {
-  if (supabase) return supabase;
+export function getPool(): Pool {
+  if (pool) return pool;
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error('SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY/ANON_KEY são obrigatórios');
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL é obrigatória');
   }
 
-  supabase = createClient(url, key, {
-    auth: { persistSession: false },
-  });
+  pool = new Pool({ connectionString: databaseUrl });
+  return pool;
+}
 
-  return supabase;
+export async function query<T extends QueryResultRow = QueryResultRow>(
+  sql: string,
+  params?: any[],
+): Promise<T[]> {
+  const client = await getPool().connect();
+  try {
+    const result = await client.query<T>(sql, params);
+    return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
+export async function querySingle<T extends QueryResultRow = QueryResultRow>(
+  sql: string,
+  params?: any[],
+): Promise<T | null> {
+  const rows = await query<T>(sql, params);
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function execute(sql: string, params?: any[]): Promise<void> {
+  const client = await getPool().connect();
+  try {
+    await client.query(sql, params);
+  } finally {
+    client.release();
+  }
 }
