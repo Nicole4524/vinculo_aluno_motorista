@@ -532,6 +532,42 @@ export const swaggerSpec: OpenAPIV3.Document = {
         },
       },
     },
+    '/api/vinculo/motoristas/perfil': {
+      get: {
+        tags: ['Motoristas'],
+        summary: 'Consultar perfil do motorista autenticado',
+        description:
+          'Retorna os dados do motorista autenticado, incluindo seu código único e permanente. Se o motorista ainda não possuir um código, ele é gerado automaticamente no momento da autenticação.',
+        operationId: 'consultarPerfilMotorista',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Perfil do motorista',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/MotoristaLookup' },
+              },
+            },
+          },
+          '401': {
+            description: 'Token não fornecido ou inválido',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
+          },
+          '403': {
+            description: 'Usuário autenticado não é motorista',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/vinculo/vinculos/meu': {
       get: {
         tags: ['Vínculos'],

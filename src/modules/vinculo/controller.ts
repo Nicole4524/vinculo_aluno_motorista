@@ -104,6 +104,15 @@ export async function buscarMotorista(req: Request, res: Response, next: NextFun
   }
 }
 
+export async function consultarPerfilMotorista(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await service.consultarPerfilMotorista(req.usuario!);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function listarTodosAtivos(_req: Request, res: Response, next: NextFunction) {
   try {
     const result = await service.listarVinculosAtivos();

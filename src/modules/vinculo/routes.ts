@@ -33,6 +33,9 @@ router.patch('/solicitacoes/:id/cancelar', controller.cancelar);
 // Buscar motorista por código
 router.get('/motoristas/codigo/:codigo', controller.buscarMotorista);
 
+// Consultar o próprio perfil (inclui o código único permanente)
+router.get('/motoristas/perfil', autorizar(PerfilUsuario.MOTORISTA), controller.consultarPerfilMotorista);
+
 // ---- Vínculos ----
 
 // Consultar vínculo ativo do aluno autenticado

@@ -158,3 +158,13 @@ export async function findMotoristaByCode(codigo: string): Promise<(UsuarioRow &
     [codigo, 'motorista'],
   );
 }
+
+// Atualiza o código somente se o usuário ainda não tiver um, evitando sobrescrever
+// um código já existente em caso de requisições concorrentes.
+export async function setCodigoIfMissing(id: number, codigo: string): Promise<UsuarioRow | null> {
+  const rows = await query<UsuarioRow>(
+    `UPDATE usuarios SET codigo = $2 WHERE id = $1 AND codigo IS NULL RETURNING id, nome, tipo, codigo`,
+    [id, codigo],
+  );
+  return rows[0] ?? null;
+}

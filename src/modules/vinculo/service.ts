@@ -13,6 +13,9 @@ import {
   VinculoResponse,
 } from './types';
 import { AcaoSolicitacao } from '../../shared/types';
+import { gerarCodigoMotorista } from '../../shared/codeGenerator';
+
+const MAX_TENTATIVAS_CODIGO = 5;
 
 // ---- Helpers ----
 function toSolicitacaoDTO(row: any): SolicitacaoVinculoDTO {
@@ -239,10 +242,70 @@ export async function listarVinculosInativos(): Promise<VinculoResponse[]> {
   return Promise.all(rows.map(elaborarRespostaVinculo));
 }
 
+// ---- Código único de motorista ----
+
+// Sincroniza o motorista localmente e garante que ele possua um código único e
+// permanente. Se o motorista já tiver um código, ele é apenas retornado (nunca
+// recriado). Em caso de colisão (código já usado por outro motorista), gera um
+// novo candidato e tenta novamente.
+export async function garantirCodigoMotorista(id: number, nome: string): Promise<string> {
+  const usuario = await repo.upsertUsuario(id, nome, 'motorista');
+  console.log(`[CODIGO_MOTORISTA] Motorista sincronizado: id=${id}, nome=${nome}`);
+
+  if (usuario.codigo) {
+    return usuario.codigo;
+  }
+
+  console.log(`[CODIGO_MOTORISTA] Motorista ${id} ainda não possui código. Gerando...`);
+
+  for (let tentativa = 1; tentativa <= MAX_TENTATIVAS_CODIGO; tentativa++) {
+    const codigoCandidato = gerarCodigoMotorista();
+    console.log(`[CODIGO_MOTORISTA] Código gerado (tentativa ${tentativa}): ${codigoCandidato}`);
+
+    try {
+      const atualizado = await repo.setCodigoIfMissing(id, codigoCandidato);
+      if (atualizado?.codigo) {
+        console.log(`[CODIGO_MOTORISTA] Código salvo para motorista ${id}: ${atualizado.codigo}`);
+        return atualizado.codigo;
+      }
+
+      // Outra requisição concorrente já definiu o código deste motorista.
+      const atual = await repo.findUsuarioById(id);
+      if (atual?.codigo) {
+        return atual.codigo;
+      }
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        console.warn(`[CODIGO_MOTORISTA] Colisão de código detectada (${codigoCandidato}), tentando novamente...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw new Error(`Não foi possível gerar um código único para o motorista ${id} após ${MAX_TENTATIVAS_CODIGO} tentativas`);
+}
+
+export async function consultarPerfilMotorista(usuario: DadosUsuario): Promise<{ id: number; nome: string; codigo: string | null }> {
+  if (usuario.tipo !== PerfilUsuario.MOTORISTA) {
+    throw new ForbiddenError('Apenas motoristas podem consultar este perfil');
+  }
+  const motorista = await repo.findUsuarioById(usuario.id);
+  if (!motorista) {
+    throw new NotFoundError('Motorista');
+  }
+  return { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null };
+}
+
 // ---- Helpers internos ----
 export async function buscarMotoristaPorCodigo(codigo: string): Promise<{ id: number; nome: string; codigo: string } | null> {
+  console.log(`[VINCULACAO] Código informado pelo aluno: ${codigo}`);
   const motorista = await repo.findMotoristaByCode(codigo);
-  if (!motorista) return null;
+  if (!motorista) {
+    console.log(`[VINCULACAO] Nenhum motorista encontrado para o código: ${codigo}`);
+    return null;
+  }
+  console.log(`[VINCULACAO] Motorista encontrado. ID do motorista localizado: ${motorista.id}`);
   return { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo };
 }
 

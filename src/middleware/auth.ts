@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { DadosUsuario, PerfilUsuario } from '../shared/types';
 import { validarTokenAluno, validarTokenMotorista } from '../config/authApi';
 import { UnauthorizedError } from '../shared/errors';
-import { upsertUsuario, findUsuarioById } from '../modules/vinculo/repository';
+import { upsertUsuario } from '../modules/vinculo/repository';
+import { garantirCodigoMotorista } from '../modules/vinculo/service';
 
 declare global {
   namespace Express {
@@ -35,13 +36,15 @@ export async function autenticar(req: Request, _res: Response, next: NextFunctio
 
   try {
     const perfil = await validarTokenMotorista(token);
-    await upsertUsuario(perfil.id, perfil.nome, 'motorista').catch(() => {});
-    const usuarioDb = await findUsuarioById(perfil.id).catch(() => null);
+    const codigo = await garantirCodigoMotorista(perfil.id, perfil.nome).catch((err) => {
+      console.error('[CODIGO_MOTORISTA] Erro ao garantir código do motorista:', err);
+      return null;
+    });
     req.usuario = {
       id: perfil.id,
       tipo: PerfilUsuario.MOTORISTA,
       nome: perfil.nome,
-      codigo: usuarioDb?.codigo ?? null,
+      codigo,
     };
     return next();
   } catch {
