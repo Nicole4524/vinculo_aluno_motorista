@@ -84,6 +84,7 @@ export const swaggerSpec: OpenAPIV3.Document = {
         properties: {
           id: { type: 'integer', description: 'ID do usuário' },
           nome: { type: 'string', description: 'Nome do usuário' },
+          codigo: { type: 'string', nullable: true, description: 'Código único do usuário' },
         },
       },
       SolicitacaoResponse: {

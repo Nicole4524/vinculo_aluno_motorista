@@ -67,8 +67,8 @@ export interface SolicitacaoResponse {
   createdAt: string;
   updatedAt: string;
   respondedAt: string | null;
-  aluno?: { id: number; nome: string };
-  motorista?: { id: number; nome: string };
+  aluno?: { id: number; nome: string; codigo?: string | null };
+  motorista?: { id: number; nome: string; codigo?: string | null };
 }
 
 export interface VinculoResponse {
@@ -78,6 +78,6 @@ export interface VinculoResponse {
   ativo: boolean;
   createdAt: string;
   updatedAt: string;
-  aluno?: { id: number; nome: string };
-  motorista?: { id: number; nome: string };
+  aluno?: { id: number; nome: string; codigo?: string | null };
+  motorista?: { id: number; nome: string; codigo?: string | null };
 }

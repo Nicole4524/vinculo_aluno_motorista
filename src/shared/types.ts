@@ -21,6 +21,7 @@ export interface DadosUsuario {
   id: number;
   tipo: PerfilUsuario;
   nome: string;
+  codigo?: string | null;
 }
 
 export type AcaoSolicitacao = 'ACEITAR' | 'RECUSAR';

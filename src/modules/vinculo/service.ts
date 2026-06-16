@@ -253,8 +253,8 @@ async function elaborarRespostaSolicitacao(solicitacao: any): Promise<Solicitaca
   ]);
   return {
     ...toSolicitacaoDTO(solicitacao),
-    aluno: aluno ? { id: aluno.id, nome: aluno.nome } : undefined,
-    motorista: motorista ? { id: motorista.id, nome: motorista.nome } : undefined,
+    aluno: aluno ? { id: aluno.id, nome: aluno.nome, codigo: aluno.codigo ?? null } : undefined,
+    motorista: motorista ? { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null } : undefined,
   };
 }
 
@@ -265,7 +265,7 @@ async function elaborarRespostaVinculo(vinculo: any): Promise<VinculoResponse> {
   ]);
   return {
     ...toVinculoDTO(vinculo),
-    aluno: aluno ? { id: aluno.id, nome: aluno.nome } : undefined,
-    motorista: motorista ? { id: motorista.id, nome: motorista.nome } : undefined,
+    aluno: aluno ? { id: aluno.id, nome: aluno.nome, codigo: aluno.codigo ?? null } : undefined,
+    motorista: motorista ? { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null } : undefined,
   };
 }

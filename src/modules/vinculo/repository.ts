@@ -147,7 +147,7 @@ export async function upsertUsuario(id: number, nome: string, tipo: string, codi
 
 export async function findUsuarioById(id: number): Promise<UsuarioRow | null> {
   return querySingle<UsuarioRow>(
-    'SELECT id, nome, tipo FROM usuarios WHERE id = $1',
+    'SELECT id, nome, tipo, codigo FROM usuarios WHERE id = $1',
     [id],
   );
 }

@@ -27,6 +27,7 @@ export interface PerfilMotoristaResponse {
   nome: string;
   email: string;
   tipo: string;
+  codigo?: string | null;
 }
 
 export async function validarTokenAluno(token: string): Promise<PerfilAlunoResponse> {

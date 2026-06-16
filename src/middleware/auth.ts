@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { DadosUsuario, PerfilUsuario } from '../shared/types';
 import { validarTokenAluno, validarTokenMotorista } from '../config/authApi';
 import { UnauthorizedError } from '../shared/errors';
-import { upsertUsuario } from '../modules/vinculo/repository';
+import { upsertUsuario, findUsuarioById } from '../modules/vinculo/repository';
 
 declare global {
   namespace Express {
@@ -35,12 +35,14 @@ export async function autenticar(req: Request, _res: Response, next: NextFunctio
 
   try {
     const perfil = await validarTokenMotorista(token);
+    await upsertUsuario(perfil.id, perfil.nome, 'motorista').catch(() => {});
+    const usuarioDb = await findUsuarioById(perfil.id).catch(() => null);
     req.usuario = {
       id: perfil.id,
       tipo: PerfilUsuario.MOTORISTA,
       nome: perfil.nome,
+      codigo: usuarioDb?.codigo ?? null,
     };
-    await upsertUsuario(perfil.id, perfil.nome, 'motorista').catch(() => {});
     return next();
   } catch {
     return next(new UnauthorizedError('Token inválido ou expirado'));
