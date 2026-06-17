@@ -4,10 +4,11 @@ export const swaggerSpec: OpenAPIV3.Document = {
   openapi: '3.0.3',
   info: {
     title: 'Vínculo Aluno-Motorista API',
-    version: '1.0.0',
+    version: '1.0.1',
     description:
       'Microserviço de gerenciamento de vínculos entre alunos e motoristas. Gerencia solicitações de conexão, aceitação, recusa e encerramento de vínculos, além de consultas de motoristas por código. ' +
-      'MODO DESENVOLVIMENTO: a autenticação (Bearer Token) está temporariamente desabilitada em todos os endpoints para testes de integração com o frontend. Reativar antes de produção.',
+      'MODO DESENVOLVIMENTO: a autenticação (Bearer Token) está temporariamente desabilitada em todos os endpoints para testes de integração com o frontend. Reativar antes de produção. ' +
+      '\n\n**v1.0.1**: corrigido bug em que o código de um motorista deixava de ser encontrado (404) após o primeiro vínculo, sempre que um aluno com o mesmo id numérico (vindo da Auth API) fizesse qualquer requisição autenticada. A identidade local de cada usuário agora é o par (id, tipo), não apenas o id — alunos e motoristas nunca mais se sobrescrevem mesmo compartilhando o mesmo id por coincidência.',
   },
   servers: [
     {
@@ -145,12 +146,17 @@ export const swaggerSpec: OpenAPIV3.Document = {
         type: 'object',
         required: ['id', 'nome', 'codigo'],
         properties: {
-          id: { type: 'integer', description: 'ID do motorista', example: 1 },
+          id: {
+            type: 'integer',
+            description:
+              'ID do motorista na Auth API. Não é uma chave global única do sistema: um aluno pode ter, por coincidência, o mesmo id numérico (alunos e motoristas vêm de sequências independentes). A identidade real de cada usuário neste serviço é o par (id, tipo).',
+            example: 1,
+          },
           nome: { type: 'string', description: 'Nome do motorista', example: 'João Silva' },
           codigo: {
             type: 'string',
             description:
-              'Código único e permanente do motorista (formato MTR + 6 caracteres alfanuméricos). Gerado automaticamente na primeira autenticação e nunca recriado.',
+              'Código único e permanente do motorista (formato MTR + 6 caracteres alfanuméricos). Gerado automaticamente na primeira autenticação e nunca recriado. Pode ser reutilizado por qualquer número de alunos para solicitar vínculo — encontrar o motorista por este código nunca depende de quantos alunos já o usaram.',
             example: 'MTR7X92AB',
           },
         },
@@ -450,7 +456,8 @@ export const swaggerSpec: OpenAPIV3.Document = {
         tags: ['Motoristas'],
         summary: 'Buscar motorista por código',
         description:
-          'Consulta os dados de um motorista a partir do seu código único. O código é convertido para maiúsculas automaticamente.',
+          'Consulta os dados de um motorista a partir do seu código único. O código é convertido para maiúsculas automaticamente. ' +
+          'O mesmo código pode ser usado por qualquer número de alunos, em qualquer ordem, e continua válido indefinidamente — ele nunca é invalidado por uma vinculação anterior, por outro aluno autenticar-se, ou por logout/login do motorista.',
         operationId: 'buscarMotoristaPorCodigo',
         parameters: [
           {

@@ -134,21 +134,26 @@ export async function listVinculosInativos(): Promise<VinculoRow[]> {
 // ---- Usuarios (banco próprio) ----
 export type UsuarioRow = { id: number; nome: string; tipo: string; codigo?: string | null };
 
+// O id retornado pela Auth API não é globalmente único: alunos e motoristas
+// vêm de tabelas/sequências independentes (/alunos/perfil e /motoristas/perfil),
+// então um aluno e um motorista podem ter o mesmo id numérico por coincidência.
+// A identidade real de uma linha local é o par (id, tipo) — é essa a chave usada
+// no ON CONFLICT, para que o upsert de um nunca sobrescreva a linha do outro.
 export async function upsertUsuario(id: number, nome: string, tipo: string, codigo?: string): Promise<UsuarioRow> {
   const rows = await query<UsuarioRow>(
     `INSERT INTO usuarios (id, nome, tipo, codigo)
      VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO UPDATE SET nome = EXCLUDED.nome, tipo = EXCLUDED.tipo, codigo = COALESCE(EXCLUDED.codigo, usuarios.codigo)
+     ON CONFLICT (id, tipo) DO UPDATE SET nome = EXCLUDED.nome, codigo = COALESCE(EXCLUDED.codigo, usuarios.codigo)
      RETURNING id, nome, tipo, codigo`,
     [id, nome, tipo, codigo || null],
   );
   return rows[0];
 }
 
-export async function findUsuarioById(id: number): Promise<UsuarioRow | null> {
+export async function findUsuarioById(id: number, tipo: string): Promise<UsuarioRow | null> {
   return querySingle<UsuarioRow>(
-    'SELECT id, nome, tipo, codigo FROM usuarios WHERE id = $1',
-    [id],
+    'SELECT id, nome, tipo, codigo FROM usuarios WHERE id = $1 AND tipo = $2',
+    [id, tipo],
   );
 }
 
@@ -160,10 +165,12 @@ export async function findMotoristaByCode(codigo: string): Promise<(UsuarioRow &
 }
 
 // Atualiza o código somente se o usuário ainda não tiver um, evitando sobrescrever
-// um código já existente em caso de requisições concorrentes.
+// um código já existente em caso de requisições concorrentes. Filtra por
+// tipo = 'motorista' explicitamente: como (id, tipo) agora identifica a linha,
+// isso garante que nunca grava um código na linha de um aluno com id colidente.
 export async function setCodigoIfMissing(id: number, codigo: string): Promise<UsuarioRow | null> {
   const rows = await query<UsuarioRow>(
-    `UPDATE usuarios SET codigo = $2 WHERE id = $1 AND codigo IS NULL RETURNING id, nome, tipo, codigo`,
+    `UPDATE usuarios SET codigo = $2 WHERE id = $1 AND tipo = 'motorista' AND codigo IS NULL RETURNING id, nome, tipo, codigo`,
     [id, codigo],
   );
   return rows[0] ?? null;

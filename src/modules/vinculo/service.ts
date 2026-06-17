@@ -52,9 +52,30 @@ export async function criarSolicitacao(
     throw new ValidationError('Não é possível criar solicitação para si mesmo');
   }
 
-  const targetUser = await repo.findUsuarioById(targetId);
+  if (usuario.tipo !== PerfilUsuario.ALUNO && usuario.tipo !== PerfilUsuario.MOTORISTA) {
+    throw new ValidationError('Tipo de usuário inválido');
+  }
+
+  // O id da Auth API não é globalmente único entre alunos e motoristas (ver
+  // repository.ts), então a busca do alvo já filtra pelo tipo esperado em vez
+  // de buscar só por id — isso evita encontrar a linha errada quando um aluno
+  // e um motorista compartilham o mesmo id numérico por coincidência.
+  const tipoSolicitante = usuario.tipo === PerfilUsuario.ALUNO ? 'aluno' : 'motorista';
+  const tipoEsperadoDoAlvo = tipoSolicitante === 'aluno' ? 'motorista' : 'aluno';
+
+  const targetUser = await repo.findUsuarioById(targetId, tipoEsperadoDoAlvo);
   if (!targetUser) {
-    throw new NotFoundError('Usuário alvo');
+    // Pode existir um usuário com este id, só que do tipo "errado" (ex: aluno
+    // tentando solicitar outro aluno) — distinguimos isso de "não existe" para
+    // devolver uma mensagem de validação mais específica.
+    const targetComTipoDoSolicitante = await repo.findUsuarioById(targetId, tipoSolicitante);
+    if (!targetComTipoDoSolicitante) {
+      throw new NotFoundError('Usuário alvo');
+    }
+    if (tipoSolicitante === 'aluno') {
+      throw new ValidationError('Aluno só pode solicitar vínculo com um motorista');
+    }
+    throw new ValidationError('Motorista só pode solicitar vínculo com um aluno');
   }
 
   let alunoId: number;
@@ -62,21 +83,13 @@ export async function criarSolicitacao(
   let solicitadoPor: SolicitadoPor;
 
   if (usuario.tipo === PerfilUsuario.ALUNO) {
-    if (targetUser.tipo !== 'motorista') {
-      throw new ValidationError('Aluno só pode solicitar vínculo com um motorista');
-    }
     alunoId = usuario.id;
     motoristaId = targetId;
     solicitadoPor = SolicitadoPor.ALUNO;
-  } else if (usuario.tipo === PerfilUsuario.MOTORISTA) {
-    if (targetUser.tipo !== 'aluno') {
-      throw new ValidationError('Motorista só pode solicitar vínculo com um aluno');
-    }
+  } else {
     alunoId = targetId;
     motoristaId = usuario.id;
     solicitadoPor = SolicitadoPor.MOTORISTA;
-  } else {
-    throw new ValidationError('Tipo de usuário inválido');
   }
 
   const vinculoAtivo = await repo.findVinculoAtivoByAluno(alunoId);
@@ -272,7 +285,7 @@ export async function garantirCodigoMotorista(id: number, nome: string): Promise
       }
 
       // Outra requisição concorrente já definiu o código deste motorista.
-      const atual = await repo.findUsuarioById(id);
+      const atual = await repo.findUsuarioById(id, 'motorista');
       if (atual?.codigo) {
         return atual.codigo;
       }
@@ -311,9 +324,13 @@ export async function consultarPerfilMotorista(usuario: DadosUsuario): Promise<{
   // }
   // ============================================================
 
+  // O id da Auth API não é globalmente único entre alunos e motoristas (ver
+  // repository.ts), por isso a busca pelo próprio perfil também filtra pelo
+  // tipo do usuário autenticado, não só pelo id.
+  const tipoBusca = usuario.tipo === PerfilUsuario.ALUNO ? 'aluno' : 'motorista';
   console.log('=== BUSCA MOTORISTA ===');
-  console.log(`Consulta executada: findUsuarioById(${usuario?.id})`);
-  const motorista = await repo.findUsuarioById(usuario.id);
+  console.log(`Consulta executada: findUsuarioById(${usuario?.id}, ${tipoBusca})`);
+  const motorista = await repo.findUsuarioById(usuario.id, tipoBusca);
   console.log('Resultado encontrado:', motorista);
 
   if (!motorista) {
@@ -344,8 +361,8 @@ export async function buscarMotoristaPorCodigo(codigo: string): Promise<{ id: nu
 
 async function elaborarRespostaSolicitacao(solicitacao: any): Promise<SolicitacaoResponse> {
   const [aluno, motorista] = await Promise.all([
-    repo.findUsuarioById(solicitacao.aluno_id),
-    repo.findUsuarioById(solicitacao.motorista_id),
+    repo.findUsuarioById(solicitacao.aluno_id, 'aluno'),
+    repo.findUsuarioById(solicitacao.motorista_id, 'motorista'),
   ]);
   return {
     ...toSolicitacaoDTO(solicitacao),
@@ -356,8 +373,8 @@ async function elaborarRespostaSolicitacao(solicitacao: any): Promise<Solicitaca
 
 async function elaborarRespostaVinculo(vinculo: any): Promise<VinculoResponse> {
   const [aluno, motorista] = await Promise.all([
-    repo.findUsuarioById(vinculo.aluno_id),
-    repo.findUsuarioById(vinculo.motorista_id),
+    repo.findUsuarioById(vinculo.aluno_id, 'aluno'),
+    repo.findUsuarioById(vinculo.motorista_id, 'motorista'),
   ]);
   return {
     ...toVinculoDTO(vinculo),

@@ -6,10 +6,13 @@ jest.mock('../src/modules/vinculo/repository');
 
 const mockRepo = repo as jest.Mocked<typeof repo>;
 
+// Filtra por (id, tipo), não só por id: aluno e motorista podem ter o mesmo id
+// numérico vindo da Auth API (ver repository.ts), então o mock precisa
+// respeitar o tipo pedido para refletir o comportamento real corrigido.
 function mockFindUsuario(aluno?: { id: number; nome: string; tipo: string }, motorista?: { id: number; nome: string; tipo: string }) {
-  return (id: number) => {
-    if (aluno && id === aluno.id) return Promise.resolve(aluno);
-    if (motorista && id === motorista.id) return Promise.resolve(motorista);
+  return (id: number, tipo: string) => {
+    if (aluno && id === aluno.id && tipo === aluno.tipo) return Promise.resolve(aluno);
+    if (motorista && id === motorista.id && tipo === motorista.tipo) return Promise.resolve(motorista);
     return Promise.resolve(null);
   };
 }
@@ -60,6 +63,50 @@ describe('criarSolicitacao', () => {
     expect(result.motoristaId).toBe(2);
     expect(result.solicitadoPor).toBe('ALUNO');
     expect(mockRepo.insertSolicitacao).toHaveBeenCalledWith(1, 2, 'ALUNO');
+  });
+
+  // Regressão: reproduz o bug relatado em produção. O id retornado pela Auth
+  // API não é único entre alunos e motoristas (vêm de tabelas/sequências
+  // independentes), então um OUTRO aluno qualquer pode ter, por coincidência,
+  // o mesmo id numérico de um motorista já cadastrado. Antes da correção,
+  // repo.findUsuarioById(targetId) buscava só por id e o upsert do aluno
+  // colidente sobrescrevia a linha do motorista (tipo = 'aluno'), fazendo a
+  // busca por código (e por consequência qualquer novo vínculo) falhar com
+  // "motorista não encontrado" para QUALQUER aluno, mesmo o código nunca
+  // tendo mudado no banco.
+  test('id do motorista colide com o de outro aluno: solicitação ainda encontra o motorista certo', async () => {
+    const idColidente = 2;
+    const aluno = makeAlunoUser(1);
+
+    mockRepo.findUsuarioById.mockImplementation(
+      mockFindUsuario(
+        // Linha de um aluno QUALQUER (não o solicitante) que coincidentemente
+        // tem o mesmo id numérico do motorista.
+        { id: idColidente, nome: 'Outro Aluno Colidente', tipo: 'aluno' },
+        { id: idColidente, nome: 'Motorista Teste', tipo: 'motorista' },
+      ),
+    );
+    mockRepo.findVinculoAtivoByAluno.mockResolvedValue(null);
+    mockRepo.findPendenteByPair.mockResolvedValue(null);
+    mockRepo.insertSolicitacao.mockResolvedValue({
+      id: 'sol-colisao',
+      aluno_id: 1,
+      motorista_id: idColidente,
+      solicitado_por: 'ALUNO' as any,
+      status: StatusSolicitacao.PENDENTE,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      responded_at: null,
+    });
+
+    const result = await service.criarSolicitacao(aluno, idColidente);
+
+    expect(result.status).toBe(StatusSolicitacao.PENDENTE);
+    expect(result.motoristaId).toBe(idColidente);
+    // A chave da correção: busca o alvo já filtrando por tipo = 'motorista',
+    // nunca apenas por id — por isso a linha do aluno colidente é ignorada.
+    expect(mockRepo.findUsuarioById).toHaveBeenCalledWith(idColidente, 'motorista');
+    expect(mockRepo.insertSolicitacao).toHaveBeenCalledWith(1, idColidente, 'ALUNO');
   });
 
   test('motorista solicita aluno com sucesso', async () => {
