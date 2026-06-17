@@ -47,7 +47,8 @@ export async function autenticar(req: Request, _res: Response, next: NextFunctio
       codigo,
     };
     return next();
-  } catch {
+  } catch(e) {
+    console.error(e);
     return next(new UnauthorizedError('Token inválido ou expirado'));
   }
 }
