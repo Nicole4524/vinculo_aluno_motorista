@@ -5,9 +5,7 @@ import * as controller from './controller';
 
 const router = Router();
 
-// MODO DESENVOLVIMENTO: `autenticar` não exige mais token (ver middleware/auth.ts).
-// Mantido apenas para popular req.usuario (via headers de teste) e logar o acesso.
-// REATIVAR a exigência de Bearer Token antes de produção.
+// Todas as rotas exigem autenticação
 router.use(autenticar);
 
 // ---- Solicitações ----
