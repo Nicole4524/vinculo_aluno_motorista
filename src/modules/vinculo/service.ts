@@ -288,9 +288,13 @@ export async function garantirCodigoMotorista(id: number, nome: string): Promise
 }
 
 export async function consultarPerfilMotorista(usuario: DadosUsuario): Promise<{ id: number; nome: string; codigo: string | null }> {
-  console.log('=== PERFIL ===');
-  console.log('Dados do usuário extraídos do token:', { id: usuario.id, nome: usuario.nome });
-  console.log(`Role/tipo recebido: ${usuario.tipo}`);
+  console.log('=== PERFIL MOTORISTA ===');
+  console.log('Usuário autenticado:', usuario != null);
+  // MODO TESTE: a identidade vem de req.usuario (headers x-user-id/x-user-tipo
+  // em modo dev), não de um JWT verificado — ver src/middleware/auth.ts.
+  console.log('Payload do token (req.usuario):', usuario);
+  console.log(`ID do usuário: ${usuario?.id}`);
+  console.log(`Tipo do usuário: ${usuario?.tipo}`);
 
   // ============================================================
   // MODO TESTE: validação de role desabilitada temporariamente
@@ -307,14 +311,21 @@ export async function consultarPerfilMotorista(usuario: DadosUsuario): Promise<{
   // }
   // ============================================================
 
+  console.log('=== BUSCA MOTORISTA ===');
+  console.log(`Consulta executada: findUsuarioById(${usuario?.id})`);
   const motorista = await repo.findUsuarioById(usuario.id);
+  console.log('Resultado encontrado:', motorista);
+
   if (!motorista) {
-    console.log('Resultado da consulta: usuário não encontrado');
     throw new NotFoundError('Motorista');
   }
 
+  console.log('=== CODIGO ===');
+  console.log(`Código encontrado: ${motorista.codigo ?? 'null'}`);
+  console.log('Origem do código: banco de dados local (tabela usuarios, coluna codigo)');
+
   const resposta = { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null };
-  console.log('Resultado da consulta:', resposta);
+  console.log('Resposta enviada ao frontend:', resposta);
   return resposta;
 }
 

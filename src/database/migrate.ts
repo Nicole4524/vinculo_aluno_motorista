@@ -12,7 +12,11 @@ async function migrate() {
     process.exit(1);
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  const isLocalhost = /localhost|127\.0\.0\.1/.test(databaseUrl);
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: isLocalhost ? undefined : { rejectUnauthorized: false },
+  });
   const migrationsDir = path.resolve(__dirname, 'migrations');
   const files = fs.readdirSync(migrationsDir).sort();
 
