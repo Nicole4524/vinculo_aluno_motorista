@@ -6,7 +6,8 @@ export const swaggerSpec: OpenAPIV3.Document = {
     title: 'Vínculo Aluno-Motorista API',
     version: '1.0.0',
     description:
-      'Microserviço de gerenciamento de vínculos entre alunos e motoristas. Gerencia solicitações de conexão, aceitação, recusa e encerramento de vínculos, além de consultas de motoristas por código.',
+      'Microserviço de gerenciamento de vínculos entre alunos e motoristas. Gerencia solicitações de conexão, aceitação, recusa e encerramento de vínculos, além de consultas de motoristas por código. ' +
+      'MODO DESENVOLVIMENTO: a autenticação (Bearer Token) está temporariamente desabilitada em todos os endpoints para testes de integração com o frontend. Reativar antes de produção.',
   },
   servers: [
     {
@@ -21,14 +22,9 @@ export const swaggerSpec: OpenAPIV3.Document = {
     { name: 'Vínculos', description: 'Gerenciamento de vínculos ativos e inativos' },
   ],
   components: {
-    securitySchemes: {
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Token JWT do aluno ou motorista obtido via API de autenticação',
-      },
-    },
+    // MODO DESENVOLVIMENTO: securitySchemes removido — nenhum endpoint exige
+    // Bearer Token enquanto a autenticação estiver desabilitada (ver
+    // src/middleware/auth.ts). Reativar antes de produção.
     schemas: {
       ErrorResponse: {
         type: 'object',
@@ -203,7 +199,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Aluno solicita conexão com motorista ou motorista solicita conexão com aluno. O tipo de usuário autenticado determina o papel do solicitante.',
         operationId: 'criarSolicitacao',
-        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -226,14 +221,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ValidationErrorResponse' },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -263,7 +250,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Lista as solicitações de conexão recebidas pelo usuário autenticado. Para alunos, retorna solicitações onde o aluno é o alvo. Para motoristas, retorna solicitações onde o motorista é o alvo.',
         operationId: 'listarSolicitacoesRecebidas',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'status',
@@ -284,14 +270,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
               },
             },
           },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
-              },
-            },
-          },
         },
       },
     },
@@ -302,7 +280,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Lista as solicitações de conexão enviadas pelo usuário autenticado.',
         operationId: 'listarSolicitacoesEnviadas',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'status',
@@ -323,14 +300,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
               },
             },
           },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
-              },
-            },
-          },
         },
       },
     },
@@ -341,7 +310,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Retorna todas as solicitações de conexão relacionadas ao usuário autenticado, independentemente de status.',
         operationId: 'listarHistoricoSolicitacoes',
-        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'Histórico de solicitações',
@@ -351,14 +319,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
                   type: 'array',
                   items: { $ref: '#/components/schemas/SolicitacaoResponse' },
                 },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -372,7 +332,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Aceita ou recusa uma solicitação de conexão pendente. Apenas o usuário alvo da solicitação pode respondê-la.',
         operationId: 'responderSolicitacao',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'id',
@@ -404,14 +363,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ValidationErrorResponse' },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -449,7 +400,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Cancela uma solicitação de conexão pendente. Apenas o solicitante original pode cancelar a solicitação.',
         operationId: 'cancelarSolicitacao',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'id',
@@ -473,14 +423,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ValidationErrorResponse' },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -510,7 +452,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Consulta os dados de um motorista a partir do seu código único. O código é convertido para maiúsculas automaticamente.',
         operationId: 'buscarMotoristaPorCodigo',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'codigo',
@@ -527,14 +468,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
               'application/json': {
                 schema: { $ref: '#/components/schemas/MotoristaLookup' },
                 example: { id: 1, nome: 'João Silva', codigo: 'MTR7X92AB' },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -557,7 +490,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Retorna os dados do motorista autenticado, incluindo seu código único e permanente, persistido no banco de dados deste serviço. Se o motorista ainda não possuir um código (primeiro acesso), ele é gerado e salvo automaticamente antes da resposta. O código nunca é recriado para o mesmo motorista.',
         operationId: 'consultarPerfilMotorista',
-        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'Perfil do motorista, com o código real persistido no banco',
@@ -565,14 +497,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
               'application/json': {
                 schema: { $ref: '#/components/schemas/MotoristaLookup' },
                 example: { id: 1, nome: 'João Silva', codigo: 'MTR7X92AB' },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -594,7 +518,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Retorna o vínculo ativo do aluno autenticado. Acesso restrito a alunos.',
         operationId: 'consultarMeuVinculo',
-        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'Vínculo ativo do aluno (ou null se não houver)',
@@ -604,14 +527,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
                   nullable: true,
                   allOf: [{ $ref: '#/components/schemas/VinculoResponse' }],
                 },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido, inválido ou perfil sem permissão',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -633,7 +548,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Retorna todos os alunos vinculados ao motorista autenticado. Acesso restrito a motoristas.',
         operationId: 'listarMeusAlunos',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'ativo',
@@ -651,14 +565,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
                   type: 'array',
                   items: { $ref: '#/components/schemas/VinculoResponse' },
                 },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido, inválido ou perfil sem permissão',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -680,7 +586,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         description:
           'Encerra um vínculo existente. Apenas o aluno ou motorista proprietário do vínculo pode encerrá-lo.',
         operationId: 'encerrarVinculo',
-        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'id',
@@ -696,14 +601,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/VinculoResponse' },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
@@ -732,7 +629,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         summary: 'Listar todos os vínculos ativos',
         description: 'Retorna todos os vínculos ativos do sistema.',
         operationId: 'listarVinculosAtivos',
-        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'Lista de vínculos ativos',
@@ -745,14 +641,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
               },
             },
           },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
-              },
-            },
-          },
         },
       },
     },
@@ -762,7 +650,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
         summary: 'Listar todos os vínculos inativos',
         description: 'Retorna todos os vínculos inativos (encerrados) do sistema.',
         operationId: 'listarVinculosInativos',
-        security: [{ bearerAuth: [] }],
         responses: {
           '200': {
             description: 'Lista de vínculos inativos',
@@ -772,14 +659,6 @@ export const swaggerSpec: OpenAPIV3.Document = {
                   type: 'array',
                   items: { $ref: '#/components/schemas/VinculoResponse' },
                 },
-              },
-            },
-          },
-          '401': {
-            description: 'Token não fornecido ou inválido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },

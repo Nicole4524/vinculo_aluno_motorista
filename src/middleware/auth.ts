@@ -1,9 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { DadosUsuario, PerfilUsuario } from '../shared/types';
-import { validarTokenAluno, validarTokenMotorista } from '../config/authApi';
-import { UnauthorizedError } from '../shared/errors';
-import { upsertUsuario } from '../modules/vinculo/repository';
-import { garantirCodigoMotorista } from '../modules/vinculo/service';
 
 declare global {
   namespace Express {
@@ -13,53 +9,52 @@ declare global {
   }
 }
 
-export async function autenticar(req: Request, _res: Response, next: NextFunction) {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    return next(new UnauthorizedError('Token de acesso não fornecido'));
-  }
+// ============================================================================
+// MODO DESENVOLVIMENTO — AUTENTICAÇÃO TEMPORARIAMENTE DESABILITADA
+// ============================================================================
+// A validação de JWT/Bearer Token contra a Auth API e a verificação de perfil
+// (ALUNO/MOTORISTA) foram removidas para permitir testes de integração do
+// frontend com esta API sem a necessidade de login real.
+//
+// Nenhum header Authorization é exigido ou verificado. Como várias regras de
+// negócio do serviço (criar solicitação, consultar perfil, etc.) dependem de
+// saber "quem" está chamando, a identidade do usuário agora é aceita por
+// headers de teste, sem qualquer validação:
+//   x-user-id    -> ID do usuário (padrão: 0)
+//   x-user-tipo  -> 'ALUNO' ou 'MOTORISTA' (padrão: 'ALUNO')
+//   x-user-nome  -> nome de exibição (padrão: 'Usuário de Teste')
+//
+// REATIVAR ANTES DE PRODUÇÃO: restaurar a verificação de Authorization Bearer
+// + validarTokenAluno/validarTokenMotorista (ver histórico do git deste
+// arquivo, commit anterior a esta alteração) e reativar a checagem de perfil
+// em `autorizar`. NÃO FAZER DEPLOY EM PRODUÇÃO COM ESTE ARQUIVO COMO ESTÁ.
+// ============================================================================
 
-  const token = header.slice(7);
+export async function autenticar(req: Request, res: Response, next: NextFunction) {
+  const idHeader = req.header('x-user-id');
+  const tipoHeader = (req.header('x-user-tipo') || '').toUpperCase();
+  const nomeHeader = req.header('x-user-nome') || 'Usuário de Teste';
 
-  try {
-    const perfil = await validarTokenAluno(token);
-    req.usuario = {
-      id: perfil.id,
-      tipo: PerfilUsuario.ALUNO,
-      nome: perfil.nome,
-    };
-    await upsertUsuario(perfil.id, perfil.nome, 'aluno').catch(() => {});
-    return next();
-  } catch {
-    // Token não é de aluno, tenta como motorista
-  }
+  req.usuario = {
+    id: idHeader ? Number(idHeader) : 0,
+    tipo: tipoHeader === 'MOTORISTA' ? PerfilUsuario.MOTORISTA : PerfilUsuario.ALUNO,
+    nome: nomeHeader,
+    codigo: null,
+  };
 
-  try {
-    const perfil = await validarTokenMotorista(token);
-    const codigo = await garantirCodigoMotorista(perfil.id, perfil.nome).catch((err) => {
-      console.error('=== GERAÇÃO CODIGO === Erro ao garantir código do motorista:', err);
-      return null;
-    });
-    req.usuario = {
-      id: perfil.id,
-      tipo: PerfilUsuario.MOTORISTA,
-      nome: perfil.nome,
-      codigo,
-    };
-    return next();
-  } catch {
-    return next(new UnauthorizedError('Token inválido ou expirado'));
-  }
+  res.on('finish', () => {
+    console.log('=== ACESSO PUBLICO ===');
+    console.log(`Endpoint acessado: ${req.originalUrl}`);
+    console.log(`Método: ${req.method}`);
+    console.log(`IP: ${req.ip}`);
+    console.log(`Status: ${res.statusCode}`);
+  });
+
+  next();
 }
 
-export function autorizar(...perfis: PerfilUsuario[]) {
-  return (req: Request, _res: Response, next: NextFunction) => {
-    if (!req.usuario) {
-      return next(new UnauthorizedError('Usuário não autenticado'));
-    }
-    if (!perfis.includes(req.usuario.tipo)) {
-      return next(new UnauthorizedError('Perfil sem permissão para esta ação'));
-    }
-    next();
-  };
+export function autorizar(..._perfis: PerfilUsuario[]) {
+  // MODO DESENVOLVIMENTO: checagem de perfil (Roles) desabilitada — qualquer
+  // chamada passa, independentemente do tipo de usuário.
+  return (_req: Request, _res: Response, next: NextFunction) => next();
 }
