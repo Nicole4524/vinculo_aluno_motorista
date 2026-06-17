@@ -288,16 +288,33 @@ export async function garantirCodigoMotorista(id: number, nome: string): Promise
 }
 
 export async function consultarPerfilMotorista(usuario: DadosUsuario): Promise<{ id: number; nome: string; codigo: string | null }> {
-  if (usuario.tipo !== PerfilUsuario.MOTORISTA) {
-    throw new ForbiddenError('Apenas motoristas podem consultar este perfil');
-  }
+  console.log('=== PERFIL ===');
+  console.log('Dados do usuário extraídos do token:', { id: usuario.id, nome: usuario.nome });
+  console.log(`Role/tipo recebido: ${usuario.tipo}`);
+
+  // ============================================================
+  // MODO TESTE: validação de role desabilitada temporariamente
+  // ============================================================
+  // Esta era a verificação que gerava "Apenas motoristas podem consultar
+  // este perfil" (403 FORBIDDEN) para qualquer usuário autenticado cujo
+  // tipo não fosse MOTORISTA. Comentada para permitir que qualquer usuário
+  // autenticado (aluno ou motorista) consulte este endpoint durante os
+  // testes de integração.
+  //
+  // REATIVAR ANTES DE PRODUÇÃO:
+  // if (usuario.tipo !== PerfilUsuario.MOTORISTA) {
+  //   throw new ForbiddenError('Apenas motoristas podem consultar este perfil');
+  // }
+  // ============================================================
+
   const motorista = await repo.findUsuarioById(usuario.id);
   if (!motorista) {
+    console.log('Resultado da consulta: usuário não encontrado');
     throw new NotFoundError('Motorista');
   }
+
   const resposta = { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null };
-  console.log('=== PERFIL ===');
-  console.log('Resposta enviada ao frontend:', resposta);
+  console.log('Resultado da consulta:', resposta);
   return resposta;
 }
 

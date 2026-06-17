@@ -103,4 +103,23 @@ describe('Código único do motorista', () => {
     expect(result).toEqual({ id: 10, nome: 'Novo Motorista', codigo: 'MTRABC234' });
     expect(result.codigo).not.toBe('CAMPO_AUSENTE_NA_AUTH_API');
   });
+
+  // MODO TESTE: a checagem de role (exigir motorista) foi comentada — qualquer
+  // usuário autenticado deve conseguir consultar o endpoint, sem 403.
+  test('perfil: usuário ALUNO autenticado não é bloqueado por role (MODO TESTE)', async () => {
+    mockRepo.findUsuarioById.mockResolvedValue({
+      id: 1,
+      nome: 'Aluno Teste',
+      tipo: 'aluno',
+      codigo: null,
+    });
+
+    const result = await service.consultarPerfilMotorista({
+      id: 1,
+      tipo: PerfilUsuario.ALUNO,
+      nome: 'Aluno Teste',
+    });
+
+    expect(result).toEqual({ id: 1, nome: 'Aluno Teste', codigo: null });
+  });
 });

@@ -488,23 +488,16 @@ export const swaggerSpec: OpenAPIV3.Document = {
         tags: ['Motoristas'],
         summary: 'Consultar perfil do motorista autenticado',
         description:
-          'Retorna os dados do motorista autenticado, incluindo seu código único e permanente, persistido no banco de dados deste serviço. Se o motorista ainda não possuir um código (primeiro acesso), ele é gerado e salvo automaticamente antes da resposta. O código nunca é recriado para o mesmo motorista.',
+          'Retorna os dados do usuário autenticado, incluindo o código único e permanente (preenchido apenas para motoristas), persistido no banco de dados deste serviço. Se o motorista ainda não possuir um código (primeiro acesso), ele é gerado e salvo automaticamente antes da resposta. O código nunca é recriado para o mesmo motorista. ' +
+          'MODO TESTE: a exigência de perfil MOTORISTA está temporariamente desabilitada — qualquer usuário autenticado pode consultar este endpoint (alunos recebem codigo: null).',
         operationId: 'consultarPerfilMotorista',
         responses: {
           '200': {
-            description: 'Perfil do motorista, com o código real persistido no banco',
+            description: 'Perfil do usuário autenticado, com o código real persistido no banco (null se não for motorista)',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/MotoristaLookup' },
                 example: { id: 1, nome: 'João Silva', codigo: 'MTR7X92AB' },
-              },
-            },
-          },
-          '403': {
-            description: 'Usuário autenticado não é motorista',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
               },
             },
           },
