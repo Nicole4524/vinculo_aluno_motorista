@@ -250,22 +250,24 @@ export async function listarVinculosInativos(): Promise<VinculoResponse[]> {
 // novo candidato e tenta novamente.
 export async function garantirCodigoMotorista(id: number, nome: string): Promise<string> {
   const usuario = await repo.upsertUsuario(id, nome, 'motorista');
-  console.log(`[CODIGO_MOTORISTA] Motorista sincronizado: id=${id}, nome=${nome}`);
 
+  // Código já existe: nunca é recriado para o mesmo motorista.
   if (usuario.codigo) {
     return usuario.codigo;
   }
 
-  console.log(`[CODIGO_MOTORISTA] Motorista ${id} ainda não possui código. Gerando...`);
-
   for (let tentativa = 1; tentativa <= MAX_TENTATIVAS_CODIGO; tentativa++) {
     const codigoCandidato = gerarCodigoMotorista();
-    console.log(`[CODIGO_MOTORISTA] Código gerado (tentativa ${tentativa}): ${codigoCandidato}`);
+    console.log('=== GERAÇÃO CODIGO ===');
+    console.log(`Motorista ID: ${id}`);
+    console.log(`Código gerado: ${codigoCandidato}`);
 
     try {
       const atualizado = await repo.setCodigoIfMissing(id, codigoCandidato);
       if (atualizado?.codigo) {
-        console.log(`[CODIGO_MOTORISTA] Código salvo para motorista ${id}: ${atualizado.codigo}`);
+        console.log('=== SALVAMENTO ===');
+        console.log(`Código salvo: ${atualizado.codigo}`);
+        console.log(`Motorista ID: ${id}`);
         return atualizado.codigo;
       }
 
@@ -276,8 +278,7 @@ export async function garantirCodigoMotorista(id: number, nome: string): Promise
       }
     } catch (err: any) {
       if (err?.code === '23505') {
-        console.warn(`[CODIGO_MOTORISTA] Colisão de código detectada (${codigoCandidato}), tentando novamente...`);
-        continue;
+        continue; // colisão de código: gera outro candidato na próxima iteração
       }
       throw err;
     }
@@ -294,18 +295,22 @@ export async function consultarPerfilMotorista(usuario: DadosUsuario): Promise<{
   if (!motorista) {
     throw new NotFoundError('Motorista');
   }
-  return { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null };
+  const resposta = { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo ?? null };
+  console.log('=== PERFIL ===');
+  console.log('Resposta enviada ao frontend:', resposta);
+  return resposta;
 }
 
 // ---- Helpers internos ----
 export async function buscarMotoristaPorCodigo(codigo: string): Promise<{ id: number; nome: string; codigo: string } | null> {
-  console.log(`[VINCULACAO] Código informado pelo aluno: ${codigo}`);
+  console.log('=== CONSULTA POR CODIGO ===');
+  console.log(`Código pesquisado: ${codigo}`);
   const motorista = await repo.findMotoristaByCode(codigo);
   if (!motorista) {
-    console.log(`[VINCULACAO] Nenhum motorista encontrado para o código: ${codigo}`);
+    console.log('Motorista encontrado: nenhum');
     return null;
   }
-  console.log(`[VINCULACAO] Motorista encontrado. ID do motorista localizado: ${motorista.id}`);
+  console.log('Motorista encontrado:', { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo });
   return { id: motorista.id, nome: motorista.nome, codigo: motorista.codigo };
 }
 

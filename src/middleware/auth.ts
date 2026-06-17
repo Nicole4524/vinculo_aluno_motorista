@@ -37,7 +37,7 @@ export async function autenticar(req: Request, _res: Response, next: NextFunctio
   try {
     const perfil = await validarTokenMotorista(token);
     const codigo = await garantirCodigoMotorista(perfil.id, perfil.nome).catch((err) => {
-      console.error('[CODIGO_MOTORISTA] Erro ao garantir código do motorista:', err);
+      console.error('=== GERAÇÃO CODIGO === Erro ao garantir código do motorista:', err);
       return null;
     });
     req.usuario = {

@@ -82,9 +82,14 @@ export const swaggerSpec: OpenAPIV3.Document = {
       UsuarioInfo: {
         type: 'object',
         properties: {
-          id: { type: 'integer', description: 'ID do usuário' },
-          nome: { type: 'string', description: 'Nome do usuário' },
-          codigo: { type: 'string', nullable: true, description: 'Código único do usuário' },
+          id: { type: 'integer', description: 'ID do usuário', example: 1 },
+          nome: { type: 'string', description: 'Nome do usuário', example: 'João Silva' },
+          codigo: {
+            type: 'string',
+            nullable: true,
+            description: 'Código único do usuário (preenchido apenas para motoristas)',
+            example: 'MTR7X92AB',
+          },
         },
       },
       SolicitacaoResponse: {
@@ -142,10 +147,21 @@ export const swaggerSpec: OpenAPIV3.Document = {
       },
       MotoristaLookup: {
         type: 'object',
+        required: ['id', 'nome', 'codigo'],
         properties: {
-          id: { type: 'integer', description: 'ID do motorista' },
-          nome: { type: 'string', description: 'Nome do motorista' },
-          codigo: { type: 'string', description: 'Código único do motorista' },
+          id: { type: 'integer', description: 'ID do motorista', example: 1 },
+          nome: { type: 'string', description: 'Nome do motorista', example: 'João Silva' },
+          codigo: {
+            type: 'string',
+            description:
+              'Código único e permanente do motorista (formato MTR + 6 caracteres alfanuméricos). Gerado automaticamente na primeira autenticação e nunca recriado.',
+            example: 'MTR7X92AB',
+          },
+        },
+        example: {
+          id: 1,
+          nome: 'João Silva',
+          codigo: 'MTR7X92AB',
         },
       },
       StatusSolicitacao: {
@@ -500,8 +516,8 @@ export const swaggerSpec: OpenAPIV3.Document = {
             name: 'codigo',
             in: 'path',
             required: true,
-            description: 'Código único do motorista',
-            schema: { type: 'string', example: 'MTR001' },
+            description: 'Código único do motorista (formato MTR + 6 caracteres alfanuméricos)',
+            schema: { type: 'string', example: 'MTR7X92AB' },
           },
         ],
         responses: {
@@ -510,6 +526,7 @@ export const swaggerSpec: OpenAPIV3.Document = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/MotoristaLookup' },
+                example: { id: 1, nome: 'João Silva', codigo: 'MTR7X92AB' },
               },
             },
           },
@@ -526,6 +543,7 @@ export const swaggerSpec: OpenAPIV3.Document = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ErrorResponse' },
+                example: { error: 'NOT_FOUND', message: 'Motorista não encontrado' },
               },
             },
           },
@@ -537,15 +555,16 @@ export const swaggerSpec: OpenAPIV3.Document = {
         tags: ['Motoristas'],
         summary: 'Consultar perfil do motorista autenticado',
         description:
-          'Retorna os dados do motorista autenticado, incluindo seu código único e permanente. Se o motorista ainda não possuir um código, ele é gerado automaticamente no momento da autenticação.',
+          'Retorna os dados do motorista autenticado, incluindo seu código único e permanente, persistido no banco de dados deste serviço. Se o motorista ainda não possuir um código (primeiro acesso), ele é gerado e salvo automaticamente antes da resposta. O código nunca é recriado para o mesmo motorista.',
         operationId: 'consultarPerfilMotorista',
         security: [{ bearerAuth: [] }],
         responses: {
           '200': {
-            description: 'Perfil do motorista',
+            description: 'Perfil do motorista, com o código real persistido no banco',
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/MotoristaLookup' },
+                example: { id: 1, nome: 'João Silva', codigo: 'MTR7X92AB' },
               },
             },
           },
